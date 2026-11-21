@@ -1,0 +1,2681 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="AirGuard Indonesia - monitoring dan prakiraan kualitas udara seluruh wilayah Indonesia dengan ISPU, grafik, dan analisis tren."
+        />
+        <meta name="theme-color" content="#ffffff" id="themeColorMeta" />
+        <title>AirGuard ID - Prediksi Kualitas Udara Indonesia</title>
+        <!-- Terapkan tema sebelum render untuk mencegah kedip putih -->
+        <script>
+            (function () {
+                try {
+                    const stored = localStorage.getItem("airguard.theme");
+                    const prefersDark = window.matchMedia(
+                        "(prefers-color-scheme: dark)",
+                    ).matches;
+                    if (stored === "dark" || (!stored && prefersDark)) {
+                        document.documentElement.classList.add("dark");
+                    }
+                } catch (error) {}
+            })();
+        </script>
+        <!-- Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <!-- Google Fonts: Inter -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <!-- Chart.js untuk visualisasi data grafik -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- Phosphor Icons untuk ikon yang bersih dan modern -->
+        <script src="https://unpkg.com/@phosphor-icons/web"></script>
+        <script>
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            sans: ["Inter", "sans-serif"],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            html {
+                scroll-behavior: smooth;
+            }
+            html.dark {
+                color-scheme: dark;
+            }
+            @keyframes skeletonPulse {
+                0%,
+                100% {
+                    opacity: 0.55;
+                }
+                50% {
+                    opacity: 1;
+                }
+            }
+            main.is-initial-loading .value-display {
+                color: transparent !important;
+                position: relative;
+                display: inline-block;
+                min-width: 2.25rem;
+                border-radius: 0.375rem;
+                background-color: rgb(226 232 240);
+                animation: skeletonPulse 1.4s ease-in-out infinite;
+                user-select: none;
+            }
+            .dark main.is-initial-loading .value-display {
+                background-color: rgb(51 65 85);
+            }
+            @media (prefers-reduced-motion: reduce) {
+                main.is-initial-loading .value-display {
+                    animation: none;
+                }
+                .animate-spin {
+                    animation: none;
+                }
+            }
+        </style>
+    </head>
+    <body
+        class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col dark:bg-slate-950 dark:text-slate-100"
+    >
+        <!-- Indikator loading tipis di bagian atas -->
+        <div
+            id="loadingBar"
+            class="hidden fixed top-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 z-50 animate-pulse"
+        ></div>
+
+        <!-- Navbar Minimalis Putih-Biru -->
+        <nav
+            class="bg-white border-b border-slate-200 sticky top-0 z-30 dark:bg-slate-900 dark:border-slate-800"
+        >
+            <div
+                class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3"
+            >
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="bg-blue-600 text-white p-2 rounded-lg shrink-0">
+                        <i class="ph ph-wind text-xl"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <span
+                            class="font-bold text-base tracking-tight text-slate-900 block leading-none truncate dark:text-white"
+                            >AirGuard Indonesia</span
+                        >
+                        <span
+                            class="text-xs text-slate-500 dark:text-slate-400 block truncate"
+                            >Sistem Monitoring & Prediksi Kualitas Udara</span
+                        >
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <div
+                        class="hidden md:flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full font-medium dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20"
+                    >
+                        <span
+                            class="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400"
+                        ></span>
+                        <span>Open-Meteo Air Quality & Geocoding API</span>
+                    </div>
+                    <button
+                        type="button"
+                        id="themeToggle"
+                        onclick="toggleTheme()"
+                        aria-label="Ganti tema"
+                        aria-pressed="false"
+                        title="Ganti tema"
+                        class="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+                    >
+                        <i id="themeIcon" class="ph ph-moon text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main
+            class="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-4 sm:space-y-6"
+        >
+            <!-- Alert / Message Box -->
+            <div
+                id="messageBox"
+                class="hidden rounded-xl p-3.5 text-xs font-medium flex items-center justify-between gap-3 border transition-all"
+                role="status"
+                aria-live="polite"
+            >
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <i id="messageIcon" class="ph text-lg shrink-0"></i>
+                    <span id="messageText" class="min-w-0">Pesan notifikasi</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button
+                        type="button"
+                        id="messageAction"
+                        onclick="runMessageAction()"
+                        class="hidden text-[11px] font-semibold px-2.5 py-1 rounded-md bg-white/70 hover:bg-white text-current border border-current/20 transition-colors cursor-pointer dark:bg-slate-900/40 dark:hover:bg-slate-900/70"
+                    >
+                        Coba lagi
+                    </button>
+                    <button
+                        type="button"
+                        onclick="hideMessage()"
+                        aria-label="Tutup pesan"
+                        class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 cursor-pointer"
+                    >
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Banner loading saat berpindah lokasi -->
+            <div
+                id="loadingBanner"
+                class="hidden rounded-xl p-3.5 text-xs font-medium flex items-center gap-2.5 border bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:border-blue-500/20"
+                role="status"
+                aria-live="polite"
+            >
+                <i class="ph ph-spinner animate-spin text-base shrink-0"></i>
+                <span id="loadingBannerText">Memuat data...</span>
+            </div>
+
+            <!-- Bar Pencarian Wilayah Seluruh Indonesia -->
+            <section
+                class="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs dark:bg-slate-900 dark:border-slate-800"
+            >
+                <div
+                    class="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                >
+                    <div>
+                        <h1
+                            class="text-xl font-bold text-slate-900 dark:text-white"
+                        >
+                            Pencarian Wilayah Indonesia
+                        </h1>
+                        <p
+                            class="text-sm text-slate-500 mt-0.5 dark:text-slate-400"
+                        >
+                            Ketik nama kota, kabupaten, atau pilih wilayah cepat
+                            di bawah ini.
+                        </p>
+                    </div>
+
+                    <div
+                        class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto"
+                    >
+                        <!-- Input Pencarian + Dropdown Hasil Geocoding -->
+                        <div class="relative flex-grow sm:w-80">
+                            <i
+                                class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg dark:text-slate-500"
+                            ></i>
+                            <input
+                                type="text"
+                                id="searchInput"
+                                placeholder="Cari wilayah (misal: Denpasar, Malang)..."
+                                autocomplete="off"
+                                class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-500"
+                            />
+                            <!-- Dropdown Hasil Pencarian -->
+                            <div
+                                id="searchResults"
+                                class="hidden absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-40 max-h-64 overflow-y-auto divide-y divide-slate-100 dark:bg-slate-900 dark:border-slate-700 dark:divide-slate-800"
+                            ></div>
+                        </div>
+
+                        <div
+                            class="flex items-stretch sm:items-center gap-2 shrink-0"
+                        >
+                            <button
+                                type="button"
+                                id="shareBtn"
+                                onclick="shareCurrentView()"
+                                class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                title="Bagikan tautan lokasi ini"
+                                aria-label="Bagikan tautan lokasi ini"
+                            >
+                                <i class="ph ph-share-network text-base"></i>
+                                <span class="hidden sm:inline">Bagikan</span>
+                            </button>
+                            <button
+                                id="refreshBtn"
+                                onclick="fetchAirQuality()"
+                                class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
+                            >
+                                <i
+                                    class="ph ph-arrows-clockwise text-base"
+                                    id="refreshIcon"
+                                ></i>
+                                <span>Perbarui</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilihan Cepat Kota Utama -->
+                <div
+                    class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 dark:border-slate-800"
+                >
+                    <span
+                        class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                        >Wilayah Populer:</span
+                    >
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Medan',
+                                'Sumatera Utara',
+                                3.5952,
+                                98.6722,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Medan
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Jakarta',
+                                'DKI Jakarta',
+                                -6.2088,
+                                106.8456,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Jakarta
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Bandung',
+                                'Jawa Barat',
+                                -6.9175,
+                                107.6191,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Bandung
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Surabaya',
+                                'Jawa Timur',
+                                -7.2575,
+                                112.7521,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Surabaya
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Pekanbaru',
+                                'Riau',
+                                0.5071,
+                                101.4478,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Pekanbaru
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Palembang',
+                                'Sumatera Selatan',
+                                -2.9761,
+                                104.7754,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Palembang
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Makassar',
+                                'Sulawesi Selatan',
+                                -5.1477,
+                                119.4327,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Makassar
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Denpasar',
+                                'Bali',
+                                -8.6705,
+                                115.2126,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Denpasar
+                    </button>
+                    <button
+                        onclick="
+                            selectPresetCity(
+                                'Balikpapan',
+                                'Kalimantan Timur',
+                                -1.2379,
+                                116.8529,
+                            )
+                        "
+                        class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 font-medium transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                    >
+                        Balikpapan
+                    </button>
+                </div>
+
+                <!-- Favorit & riwayat lokasi -->
+                <div
+                    id="savedLocationsSection"
+                    class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2"
+                >
+                    <div id="favoritesSection" class="hidden">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                                >Favorit:</span
+                            >
+                            <div
+                                id="favoritesRow"
+                                class="flex flex-wrap items-center gap-2"
+                            ></div>
+                        </div>
+                    </div>
+                    <div id="recentSection" class="hidden">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                                >Terakhir dilihat:</span
+                            >
+                            <div
+                                id="recentRow"
+                                class="flex flex-wrap items-center gap-2"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Ringkasan Status Wilayah & Parameter Polutan -->
+            <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Kartu Utama Lokasi & Status ISPU (4 Kolom) -->
+                <div
+                    class="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800"
+                >
+                    <div>
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <span
+                                    class="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400"
+                                    >Lokasi Terpantau</span
+                                >
+                                <h2
+                                    id="cityNameDisplay"
+                                    class="text-2xl font-bold text-slate-900 mt-1 truncate dark:text-white"
+                                >
+                                    Medan
+                                </h2>
+                                <p
+                                    id="regionDisplay"
+                                    class="text-xs text-slate-500 mt-0.5 dark:text-slate-400"
+                                >
+                                    Sumatera Utara, Indonesia
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    type="button"
+                                    id="favoriteBtn"
+                                    onclick="toggleFavorite()"
+                                    aria-label="Tambahkan ke favorit"
+                                    aria-pressed="false"
+                                    title="Tambahkan ke favorit"
+                                    class="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-amber-500 hover:border-amber-300 transition-colors cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-amber-400 dark:hover:border-amber-500/40"
+                                >
+                                    <i id="favoriteIcon" class="ph ph-star text-base"></i>
+                                </button>
+                                <span
+                                    id="coordBadge"
+                                    class="text-[11px] font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/60 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                >
+                                    3.60°, 98.67°
+                                </span>
+                            </div>
+                        </div>
+
+                        <div
+                            class="my-6 py-5 px-5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 dark:bg-slate-800/60 dark:border-slate-700/60"
+                        >
+                            <div>
+                                <span
+                                    class="text-xs font-medium text-slate-500 block dark:text-slate-400"
+                                    >Konsentrasi PM2.5</span
+                                >
+                                <div class="flex items-baseline gap-1.5 mt-1">
+                                    <span
+                                        id="mainPm25Value"
+                                        class="value-display text-4xl font-extrabold text-slate-900 tracking-tight dark:text-white"
+                                        >--</span
+                                    >
+                                    <span
+                                        class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        >µg/m³</span
+                                    >
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span
+                                    class="text-xs font-medium text-slate-500 block dark:text-slate-400"
+                                    >ISPU</span
+                                >
+                                <div class="flex items-baseline justify-end gap-1.5 mt-1">
+                                    <span
+                                        id="ispuValue"
+                                        class="value-display text-2xl font-extrabold text-slate-900 dark:text-white"
+                                        >--</span
+                                    >
+                                    <span
+                                        class="text-[11px] font-medium text-slate-500 dark:text-slate-400"
+                                        >Indeks</span
+                                    >
+                                </div>
+                                <span
+                                    id="ispuBadge"
+                                    class="inline-block mt-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                                >
+                                    Memuat...
+                                </span>
+                                <p
+                                    id="dominantPollutant"
+                                    class="text-[10px] text-slate-500 mt-1 dark:text-slate-400"
+                                >
+                                    Dominan: --
+                                </p>
+                            </div>
+                        </div>
+                        <p
+                            class="flex items-center gap-1 text-[10px] text-slate-400 -mt-4 mb-4 dark:text-slate-500"
+                        >
+                            <i class="ph ph-info"></i>
+                            ISPU = sub-indeks tertinggi dari 6 polutan.
+                        </p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div class="flex items-start gap-2.5">
+                            <i
+                                class="ph ph-info text-blue-600 text-lg shrink-0 mt-0.5 dark:text-blue-400"
+                            ></i>
+                            <p
+                                id="healthAdvice"
+                                class="text-xs text-slate-600 leading-relaxed dark:text-slate-400"
+                            >
+                                Mengambil informasi kualitas udara terkini dari
+                                Open-Meteo API...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabel/Grid 8 Parameter Indikator (7 Kolom) -->
+                <div
+                    class="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800"
+                >
+                    <div
+                        class="flex items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800"
+                    >
+                        <div>
+                            <h3
+                                class="text-base font-bold text-slate-900 dark:text-white"
+                            >
+                                Detail Indikator Pencemar Udara
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                Data pengukuran parameter udara per jam
+                            </p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span
+                                id="lastUpdated"
+                                class="inline-block text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md dark:bg-blue-500/10 dark:text-blue-300"
+                            >
+                                --:--
+                            </span>
+                            <span
+                                id="lastUpdatedRelative"
+                                class="block text-[10px] text-slate-400 mt-1 dark:text-slate-500"
+                                >Menunggu data</span
+                            >
+                            <span
+                                id="autoRefreshStatus"
+                                class="block text-[10px] text-slate-400 dark:text-slate-500"
+                                >Auto 15 mnt</span
+                            >
+                        </div>
+                    </div>
+
+                    <div
+                        class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5 my-4"
+                    >
+                        <!-- PM2.5 -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >PM2.5</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-pm25" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Partikel halus ≤ 2.5 µm</span
+                            >
+                        </div>
+
+                        <!-- PM10 -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >PM10</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-pm10" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Partikel debu ≤ 10 µm</span
+                            >
+                        </div>
+
+                        <!-- NO2 -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >Nitrogen Dioksida (NO₂)</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-no2" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Emisi kendaraan & industri</span
+                            >
+                        </div>
+
+                        <!-- CO -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >Karbon Monoksida (CO)</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-co" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Gas hasil pembakaran</span
+                            >
+                        </div>
+
+                        <!-- O3 -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >Ozon (O₃)</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-o3" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Ozon permukaan bumi</span
+                            >
+                        </div>
+
+                        <!-- SO2 -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-colors dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-500/50"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >Sulfur Dioksida (SO₂)</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-so2" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Pembakaran batu bara & industri</span
+                            >
+                        </div>
+
+                        <!-- ISPU -->
+                        <div
+                            class="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 dark:bg-blue-500/10 dark:border-blue-500/20"
+                        >
+                            <span
+                                class="text-xs font-semibold text-blue-700 block dark:text-blue-300"
+                                >ISPU Indonesia</span
+                            >
+                            <div
+                                class="text-xl font-bold text-blue-950 mt-1 dark:text-blue-100"
+                            >
+                                <span id="val-ispu" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-blue-600 dark:text-blue-400"
+                                    >Indeks</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-blue-600/80 block mt-1 dark:text-blue-400/80"
+                                >Sub-indeks 6 polutan</span
+                            >
+                        </div>
+
+                        <!-- US AQI -->
+                        <div
+                            class="p-4 rounded-xl bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+                        >
+                            <span
+                                class="text-xs font-semibold text-slate-500 block dark:text-slate-400"
+                                >US AQI (Referensi)</span
+                            >
+                            <div
+                                class="text-xl font-bold text-slate-900 mt-1 dark:text-white"
+                            >
+                                <span id="val-aqi" class="value-display">--</span>
+                                <span
+                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    >Indeks</span
+                                >
+                            </div>
+                            <span
+                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                >Standar US EPA</span
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Referensi Skala ISPU Ringkas -->
+                    <div
+                        class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400"
+                    >
+                        <span
+                            class="font-semibold text-slate-700 dark:text-slate-300"
+                            >Skala ISPU:</span
+                        >
+                        <span
+                            ><strong
+                                class="text-emerald-600 dark:text-emerald-400"
+                                >1–50</strong
+                            >
+                            Baik</span
+                        >
+                        <span
+                            ><strong class="text-blue-600 dark:text-blue-400"
+                                >51–100</strong
+                            >
+                            Sedang</span
+                        >
+                        <span
+                            ><strong class="text-amber-600 dark:text-amber-400"
+                                >101–200</strong
+                            >
+                            Tidak Sehat</span
+                        >
+                        <span
+                            ><strong class="text-red-600 dark:text-red-400"
+                                >201–300</strong
+                            >
+                            Sangat Tidak Sehat</span
+                        >
+                        <span
+                            ><strong class="text-slate-900 dark:text-slate-100"
+                                >301–500</strong
+                            >
+                            Berbahaya</span
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bagian Analisis & Prediksi (Grafik Trend & Kalkulator Moving Average) -->
+            <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Grafik Trend Analysis (7 Kolom) -->
+                <div
+                    class="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between dark:bg-slate-900 dark:border-slate-800"
+                >
+                    <div
+                        class="pb-4 mb-4 border-b border-slate-100 space-y-3 dark:border-slate-800"
+                    >
+                        <div
+                            class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                            <div>
+                                <h3
+                                    id="chartTitle"
+                                    class="text-base font-bold text-slate-900 dark:text-white"
+                                >
+                                    Trend Analysis Prakiraan PM2.5 (24 Jam)
+                                </h3>
+                                <p
+                                    id="chartSubtitle"
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    Data prakiraan otomatis per jam dari
+                                    Open-Meteo API
+                                </p>
+                            </div>
+                            <div
+                                id="trendStatus"
+                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 self-start sm:self-auto dark:bg-slate-800 dark:text-slate-300"
+                            >
+                                Menganalisis pola...
+                            </div>
+                        </div>
+
+                        <!-- Kontrol Otomatis Parameter & Rentang Waktu dari Open-Meteo -->
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 pt-1"
+                        >
+                            <div
+                                class="flex flex-wrap items-center gap-1.5"
+                                id="paramSelector"
+                            >
+                                <button
+                                    type="button"
+                                    onclick="changeChartParam('pm2_5')"
+                                    data-param="pm2_5"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white transition-colors cursor-pointer dark:bg-blue-500"
+                                >
+                                    PM2.5
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="changeChartParam('pm10')"
+                                    data-param="pm10"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    PM10
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="
+                                        changeChartParam('nitrogen_dioxide')
+                                    "
+                                    data-param="nitrogen_dioxide"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    NO₂
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="
+                                        changeChartParam('carbon_monoxide')
+                                    "
+                                    data-param="carbon_monoxide"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    CO
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="changeChartParam('ozone')"
+                                    data-param="ozone"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    O₃
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="
+                                        changeChartParam('sulphur_dioxide')
+                                    "
+                                    data-param="sulphur_dioxide"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    SO₂
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="changeChartParam('us_aqi')"
+                                    data-param="us_aqi"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    US AQI
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="changeChartParam('ispu')"
+                                    data-param="ispu"
+                                    class="param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300"
+                                >
+                                    ISPU
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    id="exportCsvBtn"
+                                    onclick="exportCSV()"
+                                    disabled
+                                    class="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+                                    title="Unduh data grafik sebagai CSV"
+                                    aria-label="Unduh data grafik sebagai CSV"
+                                >
+                                    <i class="ph ph-download-simple"></i>
+                                    <span class="hidden sm:inline">CSV</span>
+                                </button>
+                                <select
+                                    id="forecastHoursSelect"
+                                    onchange="onChartRangeChange()"
+                                    class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-600 cursor-pointer dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                                >
+                                    <option value="24">24 Jam ke Depan</option>
+                                    <option value="48">48 Jam (2 Hari)</option>
+                                    <option value="120">
+                                        120 Jam (5 Hari Maksimal API)
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative h-64 w-full">
+                        <canvas id="airQualityChart"></canvas>
+                        <div
+                            id="chartLoading"
+                            class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-xl"
+                        >
+                            <div
+                                class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                <i class="ph ph-spinner animate-spin"></i>
+                                Memuat grafik...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ringkasan Statistik Otomatis dari Data Grafik API -->
+                    <div
+                        class="grid grid-cols-3 gap-2 pt-4 mt-4 border-t border-slate-100 text-center dark:border-slate-800"
+                    >
+                        <div
+                            class="bg-slate-50 rounded-lg py-2 px-2 dark:bg-slate-800/60"
+                        >
+                            <span
+                                class="text-[11px] text-slate-500 block dark:text-slate-400"
+                                >Terendah</span
+                            >
+                            <span
+                                id="statMin"
+                                class="value-display text-xs font-bold text-slate-900 dark:text-white"
+                                >--</span
+                            >
+                        </div>
+                        <div
+                            class="bg-blue-50/60 rounded-lg py-2 px-2 dark:bg-blue-500/10"
+                        >
+                            <span
+                                class="text-[11px] text-blue-700 block dark:text-blue-300"
+                                >Rata-rata Prakiraan</span
+                            >
+                            <span
+                                id="statAvg"
+                                class="value-display text-xs font-bold text-blue-950 dark:text-blue-100"
+                                >--</span
+                            >
+                        </div>
+                        <div
+                            class="bg-slate-50 rounded-lg py-2 px-2 dark:bg-slate-800/60"
+                        >
+                            <span
+                                class="text-[11px] text-slate-500 block dark:text-slate-400"
+                                >Tertinggi (Puncak)</span
+                            >
+                            <span
+                                id="statMax"
+                                class="value-display text-xs font-bold text-slate-900 dark:text-white"
+                                >--</span
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metode Prediksi Moving Average (5 Kolom) -->
+                <div
+                    class="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200 flex flex-col justify-between space-y-5 dark:bg-slate-900 dark:border-slate-800"
+                >
+                    <div>
+                        <div
+                            class="pb-3 border-b border-slate-100 dark:border-slate-800"
+                        >
+                            <h3
+                                class="text-base font-bold text-slate-900 dark:text-white"
+                            >
+                                Prediksi Moving Average
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                Perhitungan rata-rata bergerak PM2.5 dari 5
+                                periode data terakhir
+                            </p>
+                        </div>
+
+                        <!-- Hasil Otomatis dari Data API -->
+                        <div
+                            class="mt-4 p-4 rounded-xl bg-blue-50/70 border border-blue-200/80 dark:bg-blue-500/10 dark:border-blue-500/20"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span
+                                    class="text-xs font-semibold text-blue-800 dark:text-blue-200"
+                                    >Estimasi Jam Berikutnya (MA)</span
+                                >
+                                <span
+                                    class="text-[11px] text-blue-600 font-medium dark:text-blue-300"
+                                    >5 Jam Terakhir</span
+                                >
+                            </div>
+                            <div class="flex items-baseline gap-2 mt-2">
+                                <span
+                                    id="maApiResult"
+                                    class="value-display text-3xl font-extrabold text-blue-950 dark:text-blue-100"
+                                    >--</span
+                                >
+                                <span
+                                    class="text-xs font-medium text-blue-700 dark:text-blue-300"
+                                    >µg/m³</span
+                                >
+                            </div>
+                            <p
+                                id="maApiSamples"
+                                class="text-[11px] text-blue-700/80 mt-2 font-mono truncate dark:text-blue-300/80"
+                            >
+                                Sampel: [--, --, --, --, --]
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Prakiraan Jam Berikutnya hingga Besok -->
+                    <div
+                        class="pt-4 border-t border-slate-100 flex-grow flex flex-col dark:border-slate-800"
+                    >
+                        <div class="flex items-center justify-between mb-2.5">
+                            <span
+                                class="text-xs font-semibold text-slate-700 dark:text-slate-200"
+                                >Prakiraan ISPU Jam Berikutnya – Besok</span
+                            >
+                            <span
+                                class="text-[11px] text-blue-600 font-medium dark:text-blue-400"
+                                >Otomatis API</span
+                            >
+                        </div>
+                        <div
+                            id="upcomingForecastList"
+                            class="space-y-2 max-h-52 overflow-y-auto pr-1 divide-y divide-slate-100 dark:divide-slate-800"
+                        >
+                            <div class="space-y-2 py-1" aria-hidden="true">
+                                <div
+                                    class="h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse"
+                                ></div>
+                                <div
+                                    class="h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse"
+                                ></div>
+                                <div
+                                    class="h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer Minimalis -->
+        <footer
+            class="bg-white border-t border-slate-200 py-5 mt-10 dark:bg-slate-900 dark:border-slate-800"
+        >
+            <div
+                class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 dark:text-slate-400"
+            >
+                <p>
+                    Aplikasi Monitoring & Prediksi Kualitas Udara Indonesia
+                    (RPL)
+                </p>
+                <p>
+                    Data oleh
+                    <a
+                        href="https://open-meteo.com/"
+                        target="_blank"
+                        rel="noopener"
+                        class="text-blue-600 hover:underline dark:text-blue-400"
+                        >Open-Meteo</a
+                    >
+                    • Data model, bukan pengukuran resmi stasiun
+                </p>
+            </div>
+        </footer>
+
+        <!-- Logika JavaScript -->
+        <script>
+// ============================================================
+// AirGuard ID - state, utilitas, ISPU, dan penyimpanan lokal
+// ============================================================
+
+const STORAGE_KEYS = {
+    theme: "airguard.theme",
+    favorites: "airguard.favorites.v1",
+    recent: "airguard.recent.v1",
+};
+
+const AUTO_REFRESH_MS = 15 * 60 * 1000;
+const AUTO_REFRESH_CHECK_MS = 30 * 1000;
+const RELATIVE_TIME_UPDATE_MS = 30 * 1000;
+const MAX_RECENT = 6;
+const MAX_FAVORITES = 12;
+
+const DEFAULT_LOCATION = {
+    name: "Medan",
+    region: "Sumatera Utara, Indonesia",
+    lat: 3.5952,
+    lon: 98.6722,
+};
+
+const ISPU_BREAKPOINTS = {
+    pm2_5: [
+        [0, 15.5, 0, 50],
+        [15.5, 55.4, 51, 100],
+        [55.4, 150.4, 101, 200],
+        [150.4, 250.4, 201, 300],
+        [250.4, 500, 301, 500],
+    ],
+    pm10: [
+        [0, 50, 0, 50],
+        [50, 150, 51, 100],
+        [150, 350, 101, 200],
+        [350, 420, 201, 300],
+        [420, 500, 301, 500],
+    ],
+    nitrogen_dioxide: [
+        [0, 80, 0, 50],
+        [80, 200, 51, 100],
+        [200, 1130, 101, 200],
+        [1130, 2260, 201, 300],
+        [2260, 3000, 301, 500],
+    ],
+    carbon_monoxide: [
+        [0, 4000, 0, 50],
+        [4000, 8000, 51, 100],
+        [8000, 15000, 101, 200],
+        [15000, 30000, 201, 300],
+        [30000, 45000, 301, 500],
+    ],
+    ozone: [
+        [0, 120, 0, 50],
+        [120, 235, 51, 100],
+        [235, 400, 101, 200],
+        [400, 800, 201, 300],
+        [800, 1000, 301, 500],
+    ],
+    sulphur_dioxide: [
+        [0, 52, 0, 50],
+        [52, 180, 51, 100],
+        [180, 400, 101, 200],
+        [400, 800, 201, 300],
+        [800, 1200, 301, 500],
+    ],
+};
+
+const POLLUTANT_LABELS = {
+    pm2_5: "PM2.5",
+    pm10: "PM10",
+    nitrogen_dioxide: "NO₂",
+    carbon_monoxide: "CO",
+    ozone: "O₃",
+    sulphur_dioxide: "SO₂",
+};
+
+const PARAM_META = {
+    pm2_5: { label: "PM2.5", unit: "µg/m³" },
+    pm10: { label: "PM10", unit: "µg/m³" },
+    nitrogen_dioxide: { label: "Nitrogen Dioksida (NO₂)", unit: "µg/m³" },
+    carbon_monoxide: { label: "Karbon Monoksida (CO)", unit: "µg/m³" },
+    ozone: { label: "Ozon (O₃)", unit: "µg/m³" },
+    sulphur_dioxide: { label: "Sulfur Dioksida (SO₂)", unit: "µg/m³" },
+    us_aqi: { label: "US AQI", unit: "Indeks" },
+    ispu: { label: "ISPU", unit: "Indeks" },
+};
+
+const ACTIVE_PARAM_CLASS =
+    "param-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white transition-colors cursor-pointer dark:bg-blue-500";
+const INACTIVE_PARAM_CLASS =
+    "param-btn px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-blue-300";
+
+let selectedLocation = { ...DEFAULT_LOCATION };
+let pendingLocation = null;
+let lastSuccessfulLocation = null;
+let latestApiData = null;
+let latestIspuSeries = [];
+let latestTimezoneLabel = "WIB";
+let lastFetchAt = null;
+let lastDataTime = null;
+let autoRefreshDueAt = null;
+let autoRefreshTimer = null;
+let relativeTimeTimer = null;
+let currentChartParam = "pm2_5";
+let airChart = null;
+let lastChartData = null;
+let searchTimeout = null;
+let geocodeController = null;
+let activeFetchController = null;
+let fetchRequestId = 0;
+let isFetching = false;
+let favorites = [];
+let recentLocations = [];
+let messageActionCallback = null;
+let messageAutoHideTimer = null;
+
+function byId(id) {
+    return document.getElementById(id);
+}
+
+function readStorage(key, fallback) {
+    try {
+        const raw = window.localStorage.getItem(key);
+        return raw === null ? fallback : JSON.parse(raw);
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function writeStorage(key, value) {
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        // localStorage bisa diblokir di mode privat.
+    }
+}
+
+function isFiniteNumber(value) {
+    return (
+        value !== null &&
+        value !== undefined &&
+        value !== "" &&
+        Number.isFinite(Number(value))
+    );
+}
+
+function formatValue(value, digits = 1) {
+    if (!isFiniteNumber(value)) return "--";
+    const number = Number(value);
+    return Number.isInteger(number) ? String(number) : number.toFixed(digits);
+}
+
+function isValidLocation(location) {
+    return (
+        Boolean(location) &&
+        typeof location.name === "string" &&
+        location.name.trim().length > 0 &&
+        isFiniteNumber(location.lat) &&
+        isFiniteNumber(location.lon) &&
+        Number(location.lat) >= -90 &&
+        Number(location.lat) <= 90 &&
+        Number(location.lon) >= -180 &&
+        Number(location.lon) <= 180
+    );
+}
+
+function normalizeLocation(location) {
+    return {
+        name: String(location.name || "Lokasi")
+            .trim()
+            .slice(0, 80),
+        region: String(location.region || "Indonesia")
+            .trim()
+            .slice(0, 120),
+        lat: Number(location.lat),
+        lon: Number(location.lon),
+    };
+}
+
+function isSameLocation(a, b) {
+    return (
+        Boolean(a && b) &&
+        Math.abs(Number(a.lat) - Number(b.lat)) < 0.0001 &&
+        Math.abs(Number(a.lon) - Number(b.lon)) < 0.0001
+    );
+}
+
+function slugify(value) {
+    return (
+        String(value || "lokasi")
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "lokasi"
+    );
+}
+
+function isDarkMode() {
+    return document.documentElement.classList.contains("dark");
+}
+
+function readRawThemePreference() {
+    try {
+        return window.localStorage.getItem(STORAGE_KEYS.theme);
+    } catch (error) {
+        return null;
+    }
+}
+
+function updateThemeIcon() {
+    const toggle = byId("themeToggle");
+    const icon = byId("themeIcon");
+    if (!toggle || !icon) return;
+    const dark = isDarkMode();
+    icon.className = `ph ${dark ? "ph-sun" : "ph-moon"} text-lg`;
+    toggle.setAttribute("aria-pressed", String(dark));
+    toggle.title = dark ? "Mode terang" : "Mode gelap";
+    toggle.setAttribute("aria-label", toggle.title);
+}
+
+function updateThemeColorMeta() {
+    const meta = byId("themeColorMeta");
+    if (meta) meta.setAttribute("content", isDarkMode() ? "#0f172a" : "#ffffff");
+}
+
+function toggleTheme() {
+    const dark = document.documentElement.classList.toggle("dark");
+    try {
+        window.localStorage.setItem(
+            STORAGE_KEYS.theme,
+            dark ? "dark" : "light",
+        );
+    } catch (error) {
+        // abaikan
+    }
+    updateThemeIcon();
+    updateThemeColorMeta();
+    if (lastChartData) {
+        renderChart(
+            lastChartData.labels,
+            lastChartData.values,
+            lastChartData.meta,
+        );
+    }
+}
+
+function initThemeWatcher() {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event) => {
+        if (readRawThemePreference() !== null) return;
+        document.documentElement.classList.toggle("dark", event.matches);
+        updateThemeIcon();
+        updateThemeColorMeta();
+        if (lastChartData) {
+            renderChart(
+                lastChartData.labels,
+                lastChartData.values,
+                lastChartData.meta,
+            );
+        }
+    };
+    if (media.addEventListener) media.addEventListener("change", handleChange);
+    else if (media.addListener) media.addListener(handleChange);
+}
+
+function getSubIndex(pollutant, concentration) {
+    const table = ISPU_BREAKPOINTS[pollutant];
+    if (!table || !isFiniteNumber(concentration)) return null;
+    const value = Math.max(0, Number(concentration));
+    const lastRange = table[table.length - 1];
+    if (value > lastRange[1]) return 500;
+    for (const [cLow, cHigh, iLow, iHigh] of table) {
+        if (value <= cHigh) {
+            if (cHigh === cLow) return Math.round(iLow);
+            const index =
+                ((iHigh - iLow) / (cHigh - cLow)) * (value - cLow) + iLow;
+            return Math.round(index);
+        }
+    }
+    return 500;
+}
+
+function calculateISPU(values) {
+    if (!values) return null;
+    let best = null;
+    const subIndices = {};
+    Object.keys(ISPU_BREAKPOINTS).forEach((pollutant) => {
+        const subIndex = getSubIndex(pollutant, values[pollutant]);
+        if (subIndex === null) return;
+        subIndices[pollutant] = subIndex;
+        if (!best || subIndex > best.index) {
+            best = { index: subIndex, pollutant };
+        }
+    });
+    if (!best) return null;
+    return { ...best, subIndices };
+}
+
+function buildISPUHourlySeries(hourly) {
+    if (!hourly || !Array.isArray(hourly.time)) return [];
+    return hourly.time.map((_, index) => {
+        const values = {};
+        Object.keys(ISPU_BREAKPOINTS).forEach((pollutant) => {
+            values[pollutant] = hourly[pollutant]
+                ? hourly[pollutant][index]
+                : null;
+        });
+        return calculateISPU(values);
+    });
+}
+
+function getISPUCategory(value) {
+    const index = isFiniteNumber(value) ? Number(value) : 0;
+    if (index <= 50) {
+        return {
+            label: "Baik (1–50)",
+            shortLabel: "Baik",
+            advice:
+                "Kualitas udara sangat baik dan aman untuk seluruh aktivitas di luar ruangan.",
+            badgeClass:
+                "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+        };
+    }
+    if (index <= 100) {
+        return {
+            label: "Sedang (51–100)",
+            shortLabel: "Sedang",
+            advice:
+                "Kualitas udara masih dapat diterima, namun kelompok yang sangat sensitif sebaiknya membatasi aktivitas berat di luar.",
+            badgeClass:
+                "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+        };
+    }
+    if (index <= 200) {
+        return {
+            label: "Tidak Sehat (101–200)",
+            shortLabel: "Tidak Sehat",
+            advice:
+                "Kualitas udara mulai merugikan kesehatan. Disarankan menggunakan masker saat beraktivitas di luar ruangan.",
+            badgeClass:
+                "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+        };
+    }
+    if (index <= 300) {
+        return {
+            label: "Sangat Tidak Sehat (201–300)",
+            shortLabel: "Sangat Tidak Sehat",
+            advice:
+                "Peringatan kesehatan: hindari aktivitas fisik di luar ruangan dan tutup ventilasi rumah.",
+            badgeClass:
+                "bg-red-100 text-red-800 border border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+        };
+    }
+    return {
+        label: "Berbahaya (301–500)",
+        shortLabel: "Berbahaya",
+        advice:
+            "Kondisi udara berbahaya bagi seluruh populasi. Tetap berada di dalam ruangan dengan penyaring udara.",
+        badgeClass:
+            "bg-slate-900 text-white border border-slate-800 dark:bg-red-950 dark:text-red-200 dark:border-red-800",
+    };
+}
+
+function loadFavorites() {
+    const stored = readStorage(STORAGE_KEYS.favorites, []);
+    favorites = Array.isArray(stored)
+        ? stored
+              .filter(isValidLocation)
+              .map(normalizeLocation)
+              .slice(0, MAX_FAVORITES)
+        : [];
+}
+
+function loadRecentLocations() {
+    const stored = readStorage(STORAGE_KEYS.recent, []);
+    recentLocations = Array.isArray(stored)
+        ? stored
+              .filter(isValidLocation)
+              .map(normalizeLocation)
+              .slice(0, MAX_RECENT)
+        : [];
+}
+
+function saveFavorites() {
+    writeStorage(STORAGE_KEYS.favorites, favorites);
+}
+
+function saveRecentLocations() {
+    writeStorage(STORAGE_KEYS.recent, recentLocations);
+}
+
+function isFavorite(location) {
+    return favorites.some((item) => isSameLocation(item, location));
+}
+
+function updateFavoriteButton() {
+    const button = byId("favoriteBtn");
+    const icon = byId("favoriteIcon");
+    if (!button || !icon) return;
+    const active = isFavorite(selectedLocation);
+    icon.className = active
+        ? "ph-fill ph-star text-base text-amber-500 dark:text-amber-400"
+        : "ph ph-star text-base";
+    button.setAttribute("aria-pressed", String(active));
+    button.title = active ? "Hapus dari favorit" : "Tambahkan ke favorit";
+    button.setAttribute("aria-label", button.title);
+}
+
+function toggleFavorite() {
+    if (!lastSuccessfulLocation) {
+        showMessage(
+            "Muat data lokasi terlebih dahulu sebelum menyimpan favorit.",
+            "info",
+            null,
+            null,
+            4000,
+        );
+        return;
+    }
+    if (isFavorite(selectedLocation)) {
+        favorites = favorites.filter(
+            (item) => !isSameLocation(item, selectedLocation),
+        );
+        showMessage("Lokasi dihapus dari favorit.", "success", null, null, 3000);
+    } else {
+        favorites = [{ ...selectedLocation }, ...favorites].slice(
+            0,
+            MAX_FAVORITES,
+        );
+        showMessage(
+            "Lokasi ditambahkan ke favorit.",
+            "success",
+            null,
+            null,
+            3000,
+        );
+    }
+    saveFavorites();
+    renderSavedLocations();
+    updateFavoriteButton();
+}
+
+function removeFavorite(location) {
+    favorites = favorites.filter((item) => !isSameLocation(item, location));
+    saveFavorites();
+    renderSavedLocations();
+    updateFavoriteButton();
+    showMessage(
+        `Favorit ${location.name} dihapus.`,
+        "success",
+        null,
+        null,
+        3000,
+    );
+}
+
+function addRecentLocation(location) {
+    if (!isValidLocation(location)) return;
+    const normalized = normalizeLocation(location);
+    recentLocations = [
+        normalized,
+        ...recentLocations.filter((item) => !isSameLocation(item, normalized)),
+    ].slice(0, MAX_RECENT);
+    saveRecentLocations();
+    renderSavedLocations();
+}
+
+function renderLocationChips(rowId, sectionId, items, removable) {
+    const row = byId(rowId);
+    const section = byId(sectionId);
+    if (!row || !section) return;
+    row.innerHTML = "";
+    if (!items.length) {
+        section.classList.add("hidden");
+        return;
+    }
+    section.classList.remove("hidden");
+    items.forEach((location) => {
+        const chip = document.createElement("div");
+        chip.className =
+            "inline-flex items-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.className =
+            "px-3 py-1.5 text-xs font-medium hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer";
+        selectButton.textContent = location.name;
+        selectButton.title = location.region;
+        selectButton.addEventListener("click", () => selectLocation(location));
+        chip.appendChild(selectButton);
+        if (removable) {
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className =
+                "pr-2 pl-1 py-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer";
+            removeButton.setAttribute(
+                "aria-label",
+                `Hapus ${location.name} dari favorit`,
+            );
+            const icon = document.createElement("i");
+            icon.className = "ph ph-x text-xs";
+            removeButton.appendChild(icon);
+            removeButton.addEventListener("click", (event) => {
+                event.stopPropagation();
+                removeFavorite(location);
+            });
+            chip.appendChild(removeButton);
+        }
+        row.appendChild(chip);
+    });
+}
+
+function renderSavedLocations() {
+    renderLocationChips(
+        "favoritesRow",
+        "favoritesSection",
+        favorites,
+        true,
+    );
+    renderLocationChips(
+        "recentRow",
+        "recentSection",
+        recentLocations,
+        false,
+    );
+}
+
+function showMessage(
+    text,
+    type = "info",
+    actionLabel = null,
+    actionCallback = null,
+    autoHideMs = 0,
+) {
+    const box = byId("messageBox");
+    const messageText = byId("messageText");
+    const messageIcon = byId("messageIcon");
+    const actionButton = byId("messageAction");
+    if (!box || !messageText || !messageIcon || !actionButton) return;
+
+    window.clearTimeout(messageAutoHideTimer);
+    messageActionCallback =
+        typeof actionCallback === "function" ? actionCallback : null;
+
+    const base =
+        "rounded-xl p-3.5 text-xs font-medium flex items-center justify-between gap-3 border transition-all";
+    const typeClasses = {
+        info: "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:border-blue-500/20",
+        success:
+            "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/20",
+        error: "bg-red-50 text-red-800 border-red-200 dark:bg-red-500/10 dark:text-red-200 dark:border-red-500/20",
+        warning:
+            "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:border-amber-500/20",
+    };
+    const iconClasses = {
+        info: "ph-fill ph-info text-blue-600 dark:text-blue-300",
+        success:
+            "ph-fill ph-check-circle text-emerald-600 dark:text-emerald-300",
+        error: "ph-fill ph-warning-circle text-red-600 dark:text-red-300",
+        warning: "ph-fill ph-warning text-amber-600 dark:text-amber-300",
+    };
+
+    box.className = `${base} ${typeClasses[type] || typeClasses.info}`;
+    messageIcon.className = `${iconClasses[type] || iconClasses.info} text-base shrink-0`;
+    messageText.textContent = text;
+
+    if (actionLabel && messageActionCallback) {
+        actionButton.textContent = actionLabel;
+        actionButton.classList.remove("hidden");
+    } else {
+        actionButton.classList.add("hidden");
+    }
+
+    box.classList.remove("hidden");
+    if (autoHideMs > 0) {
+        messageAutoHideTimer = window.setTimeout(hideMessage, autoHideMs);
+    }
+}
+
+function hideMessage() {
+    const box = byId("messageBox");
+    if (box) box.classList.add("hidden");
+    window.clearTimeout(messageAutoHideTimer);
+    messageAutoHideTimer = null;
+    messageActionCallback = null;
+}
+
+function runMessageAction() {
+    const callback = messageActionCallback;
+    hideMessage();
+    if (callback) callback();
+}
+
+function getTimezoneLabel(data) {
+    const offset = Number(data && data.utc_offset_seconds);
+    if (offset === 7 * 3600) return "WIB";
+    if (offset === 8 * 3600) return "WITA";
+    if (offset === 9 * 3600) return "WIT";
+    if (!Number.isFinite(offset)) return "UTC";
+    const sign = offset >= 0 ? "+" : "-";
+    const absolute = Math.abs(offset);
+    const hours = Math.floor(absolute / 3600);
+    const minutes = Math.floor((absolute % 3600) / 60);
+    return `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""}`;
+}
+
+function formatRelativeTime(timestamp) {
+    if (!timestamp) return "Menunggu data";
+    const diff = Math.max(0, Date.now() - timestamp);
+    if (diff < 60 * 1000) return "baru saja";
+    const minutes = Math.floor(diff / (60 * 1000));
+    if (minutes < 60) return `${minutes} menit lalu`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} jam lalu`;
+    return `${Math.floor(hours / 24)} hari lalu`;
+}
+
+function updateRelativeTime() {
+    const element = byId("lastUpdatedRelative");
+    if (!element) return;
+    element.textContent = formatRelativeTime(lastFetchAt);
+}
+
+function getStateURL() {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("lat", Number(selectedLocation.lat).toFixed(4));
+    url.searchParams.set("lon", Number(selectedLocation.lon).toFixed(4));
+    url.searchParams.set("name", selectedLocation.name);
+    url.searchParams.set("region", selectedLocation.region);
+    url.searchParams.set("param", currentChartParam);
+    const hoursSelect = byId("forecastHoursSelect");
+    url.searchParams.set("hours", hoursSelect ? hoursSelect.value : "24");
+    return url.toString();
+}
+
+function updateURLState() {
+    try {
+        window.history.replaceState(null, "", getStateURL());
+    } catch (error) {
+        // abaikan
+    }
+}
+
+function applyStateFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("lat") && params.has("lon")) {
+        const lat = Number(params.get("lat"));
+        const lon = Number(params.get("lon"));
+        if (
+            Number.isFinite(lat) &&
+            Number.isFinite(lon) &&
+            lat >= -90 &&
+            lat <= 90 &&
+            lon >= -180 &&
+            lon <= 180
+        ) {
+            selectedLocation = normalizeLocation({
+                name: params.get("name") || "Lokasi",
+                region: params.get("region") || "Indonesia",
+                lat,
+                lon,
+            });
+            const input = byId("searchInput");
+            if (input) input.value = selectedLocation.name;
+        }
+    }
+    const param = params.get("param");
+    if (param && PARAM_META[param]) currentChartParam = param;
+    const hours = params.get("hours");
+    const hoursSelect = byId("forecastHoursSelect");
+    if (hoursSelect && ["24", "48", "120"].includes(hours || "")) {
+        hoursSelect.value = hours;
+    }
+}
+
+async function shareCurrentView() {
+    const url = getStateURL();
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: "AirGuard Indonesia",
+                text: `Kualitas udara ${selectedLocation.name}`,
+                url,
+            });
+            return;
+        } catch (error) {
+            if (error && error.name === "AbortError") return;
+        }
+    }
+    try {
+        await navigator.clipboard.writeText(url);
+        showMessage(
+            "Link berhasil disalin. Bagikan untuk membuka lokasi ini.",
+            "success",
+            null,
+            null,
+            4000,
+        );
+    } catch (error) {
+        const textarea = document.createElement("textarea");
+        textarea.value = url;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand("copy");
+            showMessage(
+                "Link berhasil disalin. Bagikan untuk membuka lokasi ini.",
+                "success",
+                null,
+                null,
+                4000,
+            );
+        } catch (fallbackError) {
+            showMessage("Gagal menyalin link.", "error");
+        } finally {
+            textarea.remove();
+        }
+    }
+}
+
+function setLoadingState(loading, options = {}) {
+    const {
+        initial = false,
+        locationChange = false,
+        showBar = false,
+        message = "",
+    } = options;
+    const main = document.querySelector("main");
+    if (main) {
+        main.classList.toggle(
+            "is-initial-loading",
+            Boolean(loading && initial),
+        );
+        main.setAttribute("aria-busy", loading ? "true" : "false");
+    }
+    const banner = byId("loadingBanner");
+    const bannerText = byId("loadingBannerText");
+    if (banner && bannerText) {
+        if (loading && locationChange && message) {
+            bannerText.textContent = message;
+            banner.classList.remove("hidden");
+        } else {
+            banner.classList.add("hidden");
+        }
+    }
+    const bar = byId("loadingBar");
+    if (bar) bar.classList.toggle("hidden", !(loading && showBar));
+    const refreshButton = byId("refreshBtn");
+    const refreshIcon = byId("refreshIcon");
+    if (refreshButton) {
+        refreshButton.disabled = Boolean(loading);
+        refreshButton.classList.toggle("opacity-60", Boolean(loading));
+        refreshButton.classList.toggle("cursor-not-allowed", Boolean(loading));
+    }
+    if (refreshIcon) refreshIcon.classList.toggle("animate-spin", Boolean(loading));
+    const chartLoading = byId("chartLoading");
+    if (chartLoading) {
+        if (loading && initial) chartLoading.classList.remove("hidden");
+        else if (!loading) chartLoading.classList.add("hidden");
+    }
+}
+
+function showForecastEmptyState(message = "Data prakiraan tidak tersedia.") {
+    const container = byId("upcomingForecastList");
+    if (!container) return;
+    container.innerHTML = "";
+    const empty = document.createElement("div");
+    empty.className =
+        "text-xs text-slate-400 dark:text-slate-500 py-4 text-center";
+    empty.textContent = message;
+    container.appendChild(empty);
+}
+
+function scheduleAutoRefresh() {
+    autoRefreshDueAt = Date.now() + AUTO_REFRESH_MS;
+    const status = byId("autoRefreshStatus");
+    if (status) status.textContent = "Auto 15 mnt";
+    if (autoRefreshTimer) window.clearInterval(autoRefreshTimer);
+    autoRefreshTimer = window.setInterval(() => {
+        if (document.hidden || isFetching) return;
+        if (!autoRefreshDueAt || Date.now() < autoRefreshDueAt) return;
+        fetchAirQuality({ location: selectedLocation, reason: "auto" });
+    }, AUTO_REFRESH_CHECK_MS);
+}
+
+function handleVisibilityChange() {
+    if (document.hidden) return;
+    updateRelativeTime();
+    if (autoRefreshDueAt && Date.now() >= autoRefreshDueAt && !isFetching) {
+        fetchAirQuality({ location: selectedLocation, reason: "auto" });
+    }
+}
+
+function hideSearchResults() {
+    const results = byId("searchResults");
+    if (results) results.classList.add("hidden");
+}
+
+function bindSearch() {
+    const input = byId("searchInput");
+    const results = byId("searchResults");
+    if (!input || !results) return;
+    input.addEventListener("input", function () {
+        const query = this.value.trim();
+        window.clearTimeout(searchTimeout);
+        if (query.length < 2) {
+            hideSearchResults();
+            return;
+        }
+        searchTimeout = window.setTimeout(
+            () => searchIndonesianLocations(query),
+            350,
+        );
+    });
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideSearchResults();
+    });
+    document.addEventListener("click", (event) => {
+        if (!input.contains(event.target) && !results.contains(event.target)) {
+            hideSearchResults();
+        }
+    });
+}
+
+async function searchIndonesianLocations(query) {
+    const results = byId("searchResults");
+    if (!results) return;
+    if (geocodeController) geocodeController.abort();
+    geocodeController = new AbortController();
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=id&format=json&countryCode=ID`;
+
+    try {
+        const response = await fetch(geoUrl, {
+            signal: geocodeController.signal,
+        });
+        const data = await response.json();
+        results.innerHTML = "";
+
+        if (!data.results || data.results.length === 0) {
+            const empty = document.createElement("div");
+            empty.className =
+                "p-3.5 text-xs text-slate-500 text-center dark:text-slate-400";
+            empty.textContent = `Wilayah "${query}" tidak ditemukan di Indonesia.`;
+            results.appendChild(empty);
+            results.classList.remove("hidden");
+            return;
+        }
+
+        data.results.forEach((place) => {
+            const adminArea = [place.admin1, place.admin2]
+                .filter(Boolean)
+                .join(", ");
+            const item = document.createElement("button");
+            item.type = "button";
+            item.className =
+                "w-full text-left px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-between gap-2 cursor-pointer";
+            const textWrap = document.createElement("div");
+            const nameElement = document.createElement("div");
+            nameElement.className =
+                "text-sm font-semibold text-slate-900 dark:text-white";
+            nameElement.textContent = place.name;
+            const regionElement = document.createElement("div");
+            regionElement.className =
+                "text-[11px] text-slate-500 dark:text-slate-400";
+            regionElement.textContent = adminArea || "Indonesia";
+            textWrap.append(nameElement, regionElement);
+            const coords = document.createElement("span");
+            coords.className =
+                "text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded dark:bg-slate-800 dark:text-slate-500";
+            coords.textContent = `${Number(place.latitude).toFixed(2)}, ${Number(place.longitude).toFixed(2)}`;
+            item.append(textWrap, coords);
+            item.addEventListener("click", () => {
+                selectLocation({
+                    name: place.name,
+                    region: adminArea ? `${adminArea}, Indonesia` : "Indonesia",
+                    lat: place.latitude,
+                    lon: place.longitude,
+                });
+            });
+            results.appendChild(item);
+        });
+        results.classList.remove("hidden");
+    } catch (error) {
+        if (error && error.name === "AbortError") return;
+        console.error("Geocoding error:", error);
+    }
+}
+
+function selectPresetCity(name, province, lat, lon) {
+    selectLocation({
+        name,
+        region: `${province}, Indonesia`,
+        lat,
+        lon,
+    });
+}
+
+function selectLocation(location) {
+    if (!isValidLocation(location)) return;
+    const normalized = normalizeLocation(location);
+    pendingLocation = normalized;
+    const input = byId("searchInput");
+    if (input) input.value = normalized.name;
+    hideSearchResults();
+    fetchAirQuality({ location: normalized, reason: "location" });
+}
+
+function getCurrentHourIndex(hourly, currentTime) {
+    if (!hourly || !Array.isArray(hourly.time) || hourly.time.length === 0) {
+        return 0;
+    }
+    const exact = hourly.time.findIndex((time) => time === currentTime);
+    if (exact >= 0) return exact;
+    if (currentTime) {
+        const upcoming = hourly.time.findIndex((time) => time >= currentTime);
+        if (upcoming >= 0) return upcoming;
+    }
+    return 0;
+}
+
+async function fetchAirQuality(options = {}) {
+    const location =
+        options.location && isValidLocation(options.location)
+            ? normalizeLocation(options.location)
+            : normalizeLocation(selectedLocation);
+    const reason = options.reason || "manual";
+    if (activeFetchController) activeFetchController.abort();
+    const controller = new AbortController();
+    const requestId = ++fetchRequestId;
+    activeFetchController = controller;
+    isFetching = true;
+
+    const initial = !lastSuccessfulLocation;
+    const isLocationChange = reason === "location";
+    pendingLocation = isLocationChange ? { ...location } : null;
+
+    if (isLocationChange) {
+        setLoadingState(true, {
+            locationChange: true,
+            showBar: true,
+            message: `Memuat data ${location.name}... Data yang tampil masih ${lastSuccessfulLocation ? lastSuccessfulLocation.name : "lokasi sebelumnya"}.`,
+        });
+    } else if (initial) {
+        setLoadingState(true, { initial: true, showBar: true });
+    } else {
+        setLoadingState(true, { showBar: reason === "manual" });
+    }
+
+    const apiParams = [
+        "pm10",
+        "pm2_5",
+        "carbon_monoxide",
+        "nitrogen_dioxide",
+        "ozone",
+        "sulphur_dioxide",
+        "us_aqi",
+    ];
+    const apiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${encodeURIComponent(location.lat)}&longitude=${encodeURIComponent(location.lon)}&current=${apiParams.join(",")}&hourly=${apiParams.join(",")}&timezone=auto&forecast_days=5`;
+
+    try {
+        const response = await fetch(apiUrl, { signal: controller.signal });
+        if (!response.ok) {
+            throw new Error(`Gagal mengambil data (HTTP ${response.status}).`);
+        }
+        const data = await response.json();
+        if (!data || !data.current) {
+            throw new Error("Data kualitas udara tidak tersedia.");
+        }
+        if (controller.signal.aborted || requestId !== fetchRequestId) return;
+
+        latestApiData = data;
+        latestIspuSeries = buildISPUHourlySeries(data.hourly);
+        selectedLocation = { ...location };
+        lastSuccessfulLocation = { ...location };
+        pendingLocation = null;
+        lastFetchAt = Date.now();
+        lastDataTime = data.current.time || null;
+        latestTimezoneLabel = getTimezoneLabel(data);
+        updateDashboardUI(data);
+        updateURLState();
+        addRecentLocation(selectedLocation);
+        hideMessage();
+        setLoadingState(false);
+        scheduleAutoRefresh();
+    } catch (error) {
+        if (error && error.name === "AbortError") return;
+        if (requestId !== fetchRequestId) return;
+        console.error("Fetch error:", error);
+        setLoadingState(false);
+        scheduleAutoRefresh();
+        if (isLocationChange) {
+            const input = byId("searchInput");
+            if (input) input.value = selectedLocation.name;
+            const failedLocation = { ...location };
+            showMessage(
+                `Gagal memuat data ${failedLocation.name}. Masih menampilkan ${selectedLocation.name}.`,
+                "error",
+                "Coba lagi",
+                () => selectLocation(failedLocation),
+            );
+        } else if (initial) {
+            showForecastEmptyState("Data prakiraan tidak tersedia.");
+            const badge = byId("ispuBadge");
+            if (badge) {
+                badge.className =
+                    "inline-block mt-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600";
+                badge.textContent = "Tidak tersedia";
+            }
+            const trendElement = byId("trendStatus");
+            if (trendElement) {
+                trendElement.className =
+                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 self-start sm:self-auto dark:bg-slate-800 dark:text-slate-300";
+                trendElement.textContent = "Data belum tersedia";
+            }
+            showMessage(
+                "Gagal memuat data kualitas udara. Periksa koneksi internet lalu coba lagi.",
+                "error",
+                "Coba lagi",
+                () =>
+                    fetchAirQuality({
+                        location: selectedLocation,
+                        reason: "initial",
+                    }),
+            );
+        } else {
+            showMessage(
+                "Gagal memperbarui data. Menampilkan data terakhir yang berhasil dimuat.",
+                "error",
+                "Coba lagi",
+                () =>
+                    fetchAirQuality({
+                        location: selectedLocation,
+                        reason: "manual",
+                    }),
+            );
+        }
+    } finally {
+        if (requestId === fetchRequestId) {
+            activeFetchController = null;
+            isFetching = false;
+            setLoadingState(false);
+        }
+    }
+}
+
+function updateDashboardUI(data) {
+    const current = data.current || {};
+    const ispuResult = calculateISPU(current);
+    const ispuIndex = ispuResult ? ispuResult.index : null;
+    const category =
+        ispuIndex !== null
+            ? getISPUCategory(ispuIndex)
+            : {
+                  label: "Tidak tersedia",
+                  shortLabel: "Tidak tersedia",
+                  advice:
+                      "Data polutan belum lengkap untuk menghitung ISPU. Coba perbarui data beberapa saat lagi.",
+                  badgeClass:
+                      "bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600",
+              };
+
+    const cityName = byId("cityNameDisplay");
+    const region = byId("regionDisplay");
+    const coordBadge = byId("coordBadge");
+    const searchInput = byId("searchInput");
+    if (cityName) cityName.textContent = selectedLocation.name;
+    if (region) region.textContent = selectedLocation.region;
+    if (coordBadge) {
+        coordBadge.textContent = `${Number(selectedLocation.lat).toFixed(2)}°, ${Number(selectedLocation.lon).toFixed(2)}°`;
+    }
+    if (searchInput) searchInput.value = selectedLocation.name;
+
+    const lastUpdated = byId("lastUpdated");
+    if (lastUpdated) {
+        const timeString = current.time ? current.time.split("T")[1] : "--:--";
+        lastUpdated.textContent = `Pembaruan: ${timeString} ${latestTimezoneLabel}`;
+        lastUpdated.title = data.timezone
+            ? `Zona waktu: ${data.timezone}`
+            : "Waktu lokal lokasi";
+    }
+    updateRelativeTime();
+
+    const mainPm25 = byId("mainPm25Value");
+    if (mainPm25) mainPm25.textContent = formatValue(current.pm2_5);
+    const ispuValue = byId("ispuValue");
+    if (ispuValue) ispuValue.textContent = ispuIndex !== null ? ispuIndex : "--";
+    const ispuBadge = byId("ispuBadge");
+    if (ispuBadge) {
+        ispuBadge.className = `inline-block mt-1.5 px-3 py-1 rounded-full text-xs font-semibold ${category.badgeClass}`;
+        ispuBadge.textContent = category.shortLabel || category.label;
+        ispuBadge.title = category.label;
+    }
+    const dominant = byId("dominantPollutant");
+    if (dominant) {
+        dominant.textContent = ispuResult
+            ? `Dominan: ${POLLUTANT_LABELS[ispuResult.pollutant] || ispuResult.pollutant}`
+            : "Dominan: --";
+    }
+    const healthAdvice = byId("healthAdvice");
+    if (healthAdvice) healthAdvice.textContent = category.advice;
+
+    const values = {
+        "val-pm25": current.pm2_5,
+        "val-pm10": current.pm10,
+        "val-no2": current.nitrogen_dioxide,
+        "val-co": current.carbon_monoxide,
+        "val-o3": current.ozone,
+        "val-so2": current.sulphur_dioxide,
+        "val-ispu": ispuIndex,
+        "val-aqi": current.us_aqi,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+        const element = byId(id);
+        if (element) element.textContent = formatValue(value);
+    });
+
+    updateFavoriteButton();
+    updateParamButtons();
+
+    if (data.hourly && Array.isArray(data.hourly.time)) {
+        const currentIndex = getCurrentHourIndex(data.hourly, current.time);
+        const pm25Series = data.hourly.pm2_5 || [];
+        const endIndex = Math.min(currentIndex + 1, pm25Series.length);
+        const startIndex = Math.max(0, endIndex - 5);
+        const recentFive = pm25Series
+            .slice(startIndex, endIndex)
+            .filter((value) => isFiniteNumber(value));
+        const movingAverage =
+            recentFive.length > 0
+                ? recentFive.reduce((sum, value) => sum + Number(value), 0) /
+                  recentFive.length
+                : null;
+        const maResult = byId("maApiResult");
+        if (maResult) {
+            maResult.textContent =
+                movingAverage !== null ? movingAverage.toFixed(1) : "--";
+        }
+        const maSamples = byId("maApiSamples");
+        if (maSamples) {
+            maSamples.textContent = `Sampel: [${recentFive.map((value) => formatValue(value)).join(", ")}]`;
+        }
+        renderUpcomingForecast(data.hourly, currentIndex);
+        updateChartFromAPI();
+    } else {
+        showForecastEmptyState("Data prakiraan tidak tersedia.");
+    }
+
+    const exportButton = byId("exportCsvBtn");
+    if (exportButton) exportButton.disabled = false;
+    const chartLoading = byId("chartLoading");
+    if (chartLoading) chartLoading.classList.add("hidden");
+}
+
+function formatDayLabel(datePart, todayDate) {
+    if (!datePart || !todayDate) return "";
+    const today = new Date(`${todayDate}T00:00:00`);
+    const target = new Date(`${datePart}T00:00:00`);
+    const difference = Math.round((target - today) / (24 * 60 * 60 * 1000));
+    if (difference === 0) return "Hari Ini";
+    if (difference === 1) return "Besok";
+    if (difference === 2) return "Lusa";
+    const parts = datePart.split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}` : datePart;
+}
+
+function renderUpcomingForecast(hourly, startIndex) {
+    const container = byId("upcomingForecastList");
+    if (!container) return;
+    container.innerHTML = "";
+    const steps = [1, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30];
+    const todayDate = hourly.time[startIndex]
+        ? hourly.time[startIndex].split("T")[0]
+        : "";
+    let rendered = 0;
+
+    steps.forEach((offset) => {
+        const index = startIndex + offset;
+        if (index >= hourly.time.length) return;
+        const [datePart, timePart] = hourly.time[index].split("T");
+        const ispuItem = latestIspuSeries[index];
+        if (!ispuItem) return;
+        const pmValue = hourly.pm2_5 ? hourly.pm2_5[index] : null;
+        const status = getISPUCategory(ispuItem.index);
+
+        const row = document.createElement("div");
+        row.className =
+            "pt-2 first:pt-0 flex items-center justify-between gap-2 text-xs";
+
+        const left = document.createElement("div");
+        left.className = "flex items-center gap-2";
+        const time = document.createElement("span");
+        time.className =
+            "font-mono font-semibold text-slate-800 dark:text-slate-200";
+        time.textContent = timePart;
+        const day = document.createElement("span");
+        day.className =
+            "text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+        day.textContent = formatDayLabel(datePart, todayDate);
+        left.append(time, day);
+
+        const right = document.createElement("div");
+        right.className = "text-right";
+        const top = document.createElement("div");
+        top.className = "flex items-center justify-end gap-2";
+        const value = document.createElement("span");
+        value.className = "font-bold text-slate-900 dark:text-white";
+        value.textContent = `ISPU ${ispuItem.index}`;
+        const badge = document.createElement("span");
+        badge.className = `px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.badgeClass}`;
+        badge.textContent = status.shortLabel;
+        top.append(value, badge);
+        const sub = document.createElement("div");
+        sub.className =
+            "text-[10px] text-slate-400 dark:text-slate-500 mt-0.5";
+        sub.textContent = isFiniteNumber(pmValue)
+            ? `PM2.5 ${formatValue(pmValue)} µg/m³`
+            : "";
+        right.append(top, sub);
+        row.append(left, right);
+        container.appendChild(row);
+        rendered += 1;
+    });
+
+    if (rendered === 0) {
+        showForecastEmptyState("Data prakiraan tidak tersedia.");
+    }
+}
+
+function updateParamButtons() {
+    document.querySelectorAll(".param-btn").forEach((button) => {
+        const active = button.dataset.param === currentChartParam;
+        button.className = active ? ACTIVE_PARAM_CLASS : INACTIVE_PARAM_CLASS;
+        button.setAttribute("aria-pressed", String(active));
+    });
+}
+
+function changeChartParam(paramKey) {
+    if (!PARAM_META[paramKey]) return;
+    currentChartParam = paramKey;
+    updateParamButtons();
+    updateChartFromAPI();
+    updateURLState();
+}
+
+function onChartRangeChange() {
+    updateChartFromAPI();
+    updateURLState();
+}
+
+function getSeriesForParam(paramKey) {
+    if (!latestApiData || !latestApiData.hourly) return [];
+    if (paramKey === "ispu") {
+        return latestIspuSeries.map((item) => (item ? item.index : null));
+    }
+    return latestApiData.hourly[paramKey] || [];
+}
+
+function updateChartFromAPI() {
+    if (!latestApiData || !latestApiData.hourly) return;
+    const hoursSelect = byId("forecastHoursSelect");
+    const hoursCount = hoursSelect
+        ? parseInt(hoursSelect.value, 10) || 24
+        : 24;
+    const hourly = latestApiData.hourly;
+    const startIndex = getCurrentHourIndex(
+        hourly,
+        latestApiData.current ? latestApiData.current.time : null,
+    );
+    const rawTimes = hourly.time.slice(startIndex, startIndex + hoursCount);
+    const fullSeries = getSeriesForParam(currentChartParam);
+    const rawValues = fullSeries.slice(startIndex, startIndex + hoursCount);
+    const meta = PARAM_META[currentChartParam] || {
+        label: currentChartParam,
+        unit: "",
+    };
+
+    const labels = rawTimes.map((time) => {
+        const [datePart, timePart] = time.split("T");
+        if (hoursCount > 24) {
+            const [, month, day] = datePart.split("-");
+            return `${day}/${month} ${timePart}`;
+        }
+        return timePart;
+    });
+
+    const rangeText =
+        hoursCount === 24 ? "24 Jam" : hoursCount === 48 ? "48 Jam" : "5 Hari";
+    const title = byId("chartTitle");
+    if (title) {
+        title.textContent = `Trend Analysis Prakiraan ${meta.label} (${rangeText})`;
+    }
+    const subtitle = byId("chartSubtitle");
+    if (subtitle) {
+        subtitle.textContent = `Prakiraan per jam wilayah ${selectedLocation.name} • Waktu lokal (${latestTimezoneLabel})`;
+    }
+
+    const validValues = rawValues.filter((value) => isFiniteNumber(value));
+    if (validValues.length > 0) {
+        const numbers = validValues.map(Number);
+        const minValue = Math.min(...numbers);
+        const maxValue = Math.max(...numbers);
+        const average = (
+            numbers.reduce((sum, value) => sum + value, 0) / numbers.length
+        ).toFixed(1);
+        const minElement = byId("statMin");
+        const avgElement = byId("statAvg");
+        const maxElement = byId("statMax");
+        if (minElement) minElement.textContent = `${minValue} ${meta.unit}`;
+        if (avgElement) avgElement.textContent = `${average} ${meta.unit}`;
+        if (maxElement) maxElement.textContent = `${maxValue} ${meta.unit}`;
+    } else {
+        ["statMin", "statAvg", "statMax"].forEach((id) => {
+            const element = byId(id);
+            if (element) element.textContent = "--";
+        });
+    }
+
+    analyzeTrend(rawValues);
+    lastChartData = { labels, values: rawValues, meta };
+    renderChart(labels, rawValues, meta);
+    const chartLoading = byId("chartLoading");
+    if (chartLoading) chartLoading.classList.add("hidden");
+}
+
+function analyzeTrend(dataArray) {
+    const trendElement = byId("trendStatus");
+    if (!trendElement) return;
+    const cleanData = dataArray
+        .filter((value) => isFiniteNumber(value))
+        .map(Number);
+    if (cleanData.length < 4) {
+        trendElement.className =
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 self-start sm:self-auto dark:bg-slate-800 dark:text-slate-300";
+        trendElement.textContent = "Data belum cukup";
+        return;
+    }
+    const middle = Math.floor(cleanData.length / 2);
+    const firstHalf =
+        cleanData.slice(0, middle).reduce((sum, value) => sum + value, 0) /
+        middle;
+    const secondHalf =
+        cleanData
+            .slice(middle)
+            .reduce((sum, value) => sum + value, 0) /
+        (cleanData.length - middle);
+    const difference = secondHalf - firstHalf;
+    const threshold = Math.max(firstHalf * 0.05, 1.5);
+
+    if (difference > threshold) {
+        trendElement.className =
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 self-start sm:self-auto dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20";
+        trendElement.innerHTML = `<i class="ph-bold ph-trend-up"></i> Tren Meningkat (+${difference.toFixed(1)})`;
+    } else if (difference < -threshold) {
+        trendElement.className =
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 self-start sm:self-auto dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
+        trendElement.innerHTML = `<i class="ph-bold ph-trend-down"></i> Tren Menurun (${difference.toFixed(1)})`;
+    } else {
+        trendElement.className =
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200 self-start sm:self-auto dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+        trendElement.innerHTML = `<i class="ph-bold ph-minus"></i> Cenderung Stabil`;
+    }
+}
+
+function getChartTheme() {
+    const dark = isDarkMode();
+    return {
+        line: dark ? "#60a5fa" : "#2563eb",
+        fill: dark ? "rgba(96, 165, 250, 0.12)" : "rgba(37, 99, 235, 0.08)",
+        grid: dark ? "#1e293b" : "#f1f5f9",
+        ticks: dark ? "#94a3b8" : "#64748b",
+        pointBorder: dark ? "#0f172a" : "#ffffff",
+        tooltipBackground: dark ? "#e2e8f0" : "#0f172a",
+        tooltipText: dark ? "#0f172a" : "#ffffff",
+    };
+}
+
+function renderChart(labels, values, meta = { label: "PM2.5", unit: "µg/m³" }) {
+    const canvas = byId("airQualityChart");
+    if (!canvas || typeof Chart === "undefined") return;
+    const context = canvas.getContext("2d");
+    if (airChart) airChart.destroy();
+
+    const theme = getChartTheme();
+    const dense = labels.length > 30;
+    const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    airChart = new Chart(context, {
+        type: "line",
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: `${meta.label} (${meta.unit})`,
+                    data: values,
+                    borderColor: theme.line,
+                    backgroundColor: theme.fill,
+                    borderWidth: 2,
+                    pointBackgroundColor: theme.line,
+                    pointBorderColor: theme.pointBorder,
+                    pointBorderWidth: 1.5,
+                    pointRadius: dense ? 1.5 : 3,
+                    pointHoverRadius: 5,
+                    fill: true,
+                    tension: 0.3,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: reduceMotion ? false : { duration: 300 },
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: theme.tooltipBackground,
+                    titleColor: theme.tooltipText,
+                    bodyColor: theme.tooltipText,
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        label(context) {
+                            return `${meta.label}: ${context.parsed.y} ${meta.unit}`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: theme.grid },
+                    ticks: { color: theme.ticks, font: { size: 11 } },
+                },
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        color: theme.ticks,
+                        maxTicksLimit: 8,
+                        font: { size: 11 },
+                    },
+                },
+            },
+        },
+    });
+}
+
+function csvEscape(value) {
+    if (value === null || value === undefined) return "";
+    const text = String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function exportCSV() {
+    if (!latestApiData || !latestApiData.hourly) {
+        showMessage("Data belum tersedia untuk diunduh.", "error");
+        return;
+    }
+    const hoursSelect = byId("forecastHoursSelect");
+    const hoursCount = hoursSelect
+        ? parseInt(hoursSelect.value, 10) || 24
+        : 24;
+    const hourly = latestApiData.hourly;
+    const startIndex = getCurrentHourIndex(
+        hourly,
+        latestApiData.current ? latestApiData.current.time : null,
+    );
+    const times = hourly.time.slice(startIndex, startIndex + hoursCount);
+    const pollutants = [
+        "pm2_5",
+        "pm10",
+        "nitrogen_dioxide",
+        "carbon_monoxide",
+        "ozone",
+        "sulphur_dioxide",
+    ];
+    const header = [
+        "waktu",
+        "pm2_5",
+        "pm10",
+        "no2",
+        "co",
+        "o3",
+        "so2",
+        "us_aqi",
+        "ispu",
+    ];
+    const rows = times.map((time, offset) => {
+        const index = startIndex + offset;
+        const ispuItem = latestIspuSeries[index];
+        return [
+            time,
+            ...pollutants.map((key) =>
+                hourly[key] ? hourly[key][index] : "",
+            ),
+            hourly.us_aqi ? hourly.us_aqi[index] : "",
+            ispuItem ? ispuItem.index : "",
+        ];
+    });
+    const csv = `\uFEFF${[header, ...rows]
+        .map((row) => row.map(csvEscape).join(","))
+        .join("\r\n")}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `airguard_${slugify(selectedLocation.name)}_${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showMessage("CSV berhasil diunduh.", "success", null, null, 3000);
+}
+
+function init() {
+    loadFavorites();
+    loadRecentLocations();
+    renderSavedLocations();
+    updateThemeIcon();
+    updateThemeColorMeta();
+    initThemeWatcher();
+    applyStateFromURL();
+    const searchInput = byId("searchInput");
+    if (searchInput && !searchInput.value) {
+        searchInput.value = selectedLocation.name;
+    }
+    updateParamButtons();
+    updateFavoriteButton();
+    bindSearch();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    relativeTimeTimer = window.setInterval(
+        updateRelativeTime,
+        RELATIVE_TIME_UPDATE_MS,
+    );
+    updateRelativeTime();
+    fetchAirQuality({ location: selectedLocation, reason: "initial" });
+}
+
+init();
+
+
+
+
+        </script>
+    </body>
+</html>
