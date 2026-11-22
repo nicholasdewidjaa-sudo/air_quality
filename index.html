@@ -8,7 +8,23 @@
             content="AirGuard Indonesia - monitoring dan prakiraan kualitas udara seluruh wilayah Indonesia dengan ISPU, grafik, dan analisis tren."
         />
         <meta name="theme-color" content="#ffffff" id="themeColorMeta" />
+        <meta property="og:type" content="website" />
+        <meta property="og:locale" content="id_ID" />
+        <meta
+            property="og:title"
+            content="AirGuard ID - Prediksi Kualitas Udara Indonesia"
+        />
+        <meta
+            property="og:description"
+            content="Pantau kualitas udara dan ISPU di seluruh Indonesia secara real-time, lengkap dengan grafik dan prakiraan 5 hari."
+        />
+        <meta name="twitter:card" content="summary" />
         <title>AirGuard ID - Prediksi Kualitas Udara Indonesia</title>
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+        <link rel="preconnect" href="https://unpkg.com" crossorigin />
         <!-- Terapkan tema sebelum render untuk mencegah kedip putih -->
         <script>
             (function () {
@@ -23,29 +39,28 @@
                 } catch (error) {}
             })();
         </script>
-        <!-- Tailwind CSS -->
-        <script src="https://cdn.tailwindcss.com"></script>
         <!-- Google Fonts: Inter -->
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
             rel="stylesheet"
         />
         <!-- Chart.js untuk visualisasi data grafik -->
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <!-- Phosphor Icons untuk ikon yang bersih dan modern -->
-        <script src="https://unpkg.com/@phosphor-icons/web"></script>
-        <script>
-            tailwind.config = {
-                darkMode: "class",
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            sans: ["Inter", "sans-serif"],
-                        },
-                    },
-                },
-            };
-        </script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+        <!-- Phosphor Icons (hanya weight yang dipakai: regular, bold, fill) -->
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/@phosphor-icons/web@2.1.2/src/regular/style.css"
+        />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/@phosphor-icons/web@2.1.2/src/bold/style.css"
+        />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/@phosphor-icons/web@2.1.2/src/fill/style.css"
+        />
+        <!-- Tailwind CSS hasil build (dimuat setelah ikon agar line-height tetap konsisten) -->
+        <link rel="stylesheet" href="assets/tailwind.css" />
         <style>
             html {
                 scroll-behavior: smooth;
@@ -168,7 +183,7 @@
                         type="button"
                         onclick="hideMessage()"
                         aria-label="Tutup pesan"
-                        class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 cursor-pointer"
+                        class="text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300 p-1 cursor-pointer"
                     >
                         <i class="ph ph-x"></i>
                     </button>
@@ -213,7 +228,7 @@
                         <!-- Input Pencarian + Dropdown Hasil Geocoding -->
                         <div class="relative flex-grow sm:w-80">
                             <i
-                                class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg dark:text-slate-500"
+                                class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg dark:text-slate-400"
                             ></i>
                             <input
                                 type="text"
@@ -263,7 +278,7 @@
                     class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 dark:border-slate-800"
                 >
                     <span
-                        class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                        class="text-xs font-medium text-slate-500 mr-1 dark:text-slate-400"
                         >Wilayah Populer:</span
                     >
                     <button
@@ -393,7 +408,7 @@
                     <div id="favoritesSection" class="hidden">
                         <div class="flex flex-wrap items-center gap-2">
                             <span
-                                class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                                class="text-xs font-medium text-slate-500 mr-1 dark:text-slate-400"
                                 >Favorit:</span
                             >
                             <div
@@ -405,7 +420,7 @@
                     <div id="recentSection" class="hidden">
                         <div class="flex flex-wrap items-center gap-2">
                             <span
-                                class="text-xs font-medium text-slate-400 mr-1 dark:text-slate-500"
+                                class="text-xs font-medium text-slate-500 mr-1 dark:text-slate-400"
                                 >Terakhir dilihat:</span
                             >
                             <div
@@ -451,13 +466,13 @@
                                     aria-label="Tambahkan ke favorit"
                                     aria-pressed="false"
                                     title="Tambahkan ke favorit"
-                                    class="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-amber-500 hover:border-amber-300 transition-colors cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-amber-400 dark:hover:border-amber-500/40"
+                                    class="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-amber-500 hover:border-amber-300 transition-colors cursor-pointer dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-amber-400 dark:hover:border-amber-500/40"
                                 >
                                     <i id="favoriteIcon" class="ph ph-star text-base"></i>
                                 </button>
                                 <span
                                     id="coordBadge"
-                                    class="text-[11px] font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/60 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                    class="text-[11px] font-mono text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/60 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                                 >
                                     3.60°, 98.67°
                                 </span>
@@ -515,7 +530,7 @@
                             </div>
                         </div>
                         <p
-                            class="flex items-center gap-1 text-[10px] text-slate-400 -mt-4 mb-4 dark:text-slate-500"
+                            class="flex items-center gap-1 text-[10px] text-slate-500 -mt-4 mb-4 dark:text-slate-400"
                         >
                             <i class="ph ph-info"></i>
                             ISPU = sub-indeks tertinggi dari 6 polutan.
@@ -564,12 +579,12 @@
                             </span>
                             <span
                                 id="lastUpdatedRelative"
-                                class="block text-[10px] text-slate-400 mt-1 dark:text-slate-500"
+                                class="block text-[10px] text-slate-500 mt-1 dark:text-slate-400"
                                 >Menunggu data</span
                             >
                             <span
                                 id="autoRefreshStatus"
-                                class="block text-[10px] text-slate-400 dark:text-slate-500"
+                                class="block text-[10px] text-slate-500 dark:text-slate-400"
                                 >Auto 15 mnt</span
                             >
                         </div>
@@ -591,12 +606,12 @@
                             >
                                 <span id="val-pm25" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Partikel halus ≤ 2.5 µm</span
                             >
                         </div>
@@ -614,12 +629,12 @@
                             >
                                 <span id="val-pm10" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Partikel debu ≤ 10 µm</span
                             >
                         </div>
@@ -637,12 +652,12 @@
                             >
                                 <span id="val-no2" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Emisi kendaraan & industri</span
                             >
                         </div>
@@ -660,12 +675,12 @@
                             >
                                 <span id="val-co" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Gas hasil pembakaran</span
                             >
                         </div>
@@ -683,12 +698,12 @@
                             >
                                 <span id="val-o3" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Ozon permukaan bumi</span
                             >
                         </div>
@@ -706,12 +721,12 @@
                             >
                                 <span id="val-so2" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >µg/m³</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Pembakaran batu bara & industri</span
                             >
                         </div>
@@ -734,7 +749,7 @@
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-blue-600/80 block mt-1 dark:text-blue-400/80"
+                                class="text-[11px] text-blue-700 block mt-1 dark:text-blue-400"
                                 >Sub-indeks 6 polutan</span
                             >
                         </div>
@@ -752,12 +767,12 @@
                             >
                                 <span id="val-aqi" class="value-display">--</span>
                                 <span
-                                    class="text-xs font-normal text-slate-400 dark:text-slate-500"
+                                    class="text-xs font-normal text-slate-500 dark:text-slate-400"
                                     >Indeks</span
                                 >
                             </div>
                             <span
-                                class="text-[11px] text-slate-400 block mt-1 dark:text-slate-500"
+                                class="text-[11px] text-slate-500 block mt-1 dark:text-slate-400"
                                 >Standar US EPA</span
                             >
                         </div>
@@ -773,7 +788,7 @@
                         >
                         <span
                             ><strong
-                                class="text-emerald-600 dark:text-emerald-400"
+                                class="text-emerald-700 dark:text-emerald-400"
                                 >1–50</strong
                             >
                             Baik</span
@@ -785,7 +800,7 @@
                             Sedang</span
                         >
                         <span
-                            ><strong class="text-amber-600 dark:text-amber-400"
+                            ><strong class="text-amber-700 dark:text-amber-400"
                                 >101–200</strong
                             >
                             Tidak Sehat</span
@@ -937,6 +952,7 @@
                                 <select
                                     id="forecastHoursSelect"
                                     onchange="onChartRangeChange()"
+                                    aria-label="Rentang waktu prakiraan"
                                     class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-600 cursor-pointer dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
                                 >
                                     <option value="24">24 Jam ke Depan</option>
@@ -1056,7 +1072,7 @@
                             </div>
                             <p
                                 id="maApiSamples"
-                                class="text-[11px] text-blue-700/80 mt-2 font-mono truncate dark:text-blue-300/80"
+                                class="text-[11px] text-blue-700 mt-2 font-mono truncate dark:text-blue-300"
                             >
                                 Sampel: [--, --, --, --, --]
                             </p>
@@ -1115,7 +1131,7 @@
                         href="https://open-meteo.com/"
                         target="_blank"
                         rel="noopener"
-                        class="text-blue-600 hover:underline dark:text-blue-400"
+                        class="text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         >Open-Meteo</a
                     >
                     • Data model, bukan pengukuran resmi stasiun
@@ -1619,7 +1635,7 @@ function renderLocationChips(rowId, sectionId, items, removable) {
             const removeButton = document.createElement("button");
             removeButton.type = "button";
             removeButton.className =
-                "pr-2 pl-1 py-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer";
+                "pr-2 pl-1 py-1.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer";
             removeButton.setAttribute(
                 "aria-label",
                 `Hapus ${location.name} dari favorit`,
@@ -1682,9 +1698,9 @@ function showMessage(
     const iconClasses = {
         info: "ph-fill ph-info text-blue-600 dark:text-blue-300",
         success:
-            "ph-fill ph-check-circle text-emerald-600 dark:text-emerald-300",
+            "ph-fill ph-check-circle text-emerald-700 dark:text-emerald-300",
         error: "ph-fill ph-warning-circle text-red-600 dark:text-red-300",
-        warning: "ph-fill ph-warning text-amber-600 dark:text-amber-300",
+        warning: "ph-fill ph-warning text-amber-700 dark:text-amber-300",
     };
 
     box.className = `${base} ${typeClasses[type] || typeClasses.info}`;
@@ -1896,7 +1912,7 @@ function showForecastEmptyState(message = "Data prakiraan tidak tersedia.") {
     container.innerHTML = "";
     const empty = document.createElement("div");
     empty.className =
-        "text-xs text-slate-400 dark:text-slate-500 py-4 text-center";
+        "text-xs text-slate-500 dark:text-slate-400 py-4 text-center";
     empty.textContent = message;
     container.appendChild(empty);
 }
@@ -1996,7 +2012,7 @@ async function searchIndonesianLocations(query) {
             textWrap.append(nameElement, regionElement);
             const coords = document.createElement("span");
             coords.className =
-                "text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded dark:bg-slate-800 dark:text-slate-500";
+                "text-[10px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded dark:bg-slate-800 dark:text-slate-400";
             coords.textContent = `${Number(place.latitude).toFixed(2)}, ${Number(place.longitude).toFixed(2)}`;
             item.append(textWrap, coords);
             item.addEventListener("click", () => {
@@ -2324,7 +2340,7 @@ function renderUpcomingForecast(hourly, startIndex) {
         time.textContent = timePart;
         const day = document.createElement("span");
         day.className =
-            "text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+            "text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
         day.textContent = formatDayLabel(datePart, todayDate);
         left.append(time, day);
 
@@ -2341,7 +2357,7 @@ function renderUpcomingForecast(hourly, startIndex) {
         top.append(value, badge);
         const sub = document.createElement("div");
         sub.className =
-            "text-[10px] text-slate-400 dark:text-slate-500 mt-0.5";
+            "text-[10px] text-slate-500 dark:text-slate-400 mt-0.5";
         sub.textContent = isFiniteNumber(pmValue)
             ? `PM2.5 ${formatValue(pmValue)} µg/m³`
             : "";
